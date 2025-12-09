@@ -1,0 +1,754 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HoYoverse 角色抽選工具</title>
+    <style>
+        /* --- 核心變數與重置 --- */
+        :root {
+            --primary: #3b82f6;
+            --secondary: #60a5fa;
+            --bg: #f0f2f5;
+            --card-bg: white;
+            --text: #333;
+            --accent: #d4a329;
+            --radius: 12px;
+            --shadow: 0 4px 20px rgba(0,0,0,0.08);
+            --font-main: "微軟正黑體", sans-serif;
+        }
+
+        /* --- [主題 1] 原神：明亮、天空、奇幻 --- */
+        [data-theme="genshin"] {
+            --primary: #4A90E2;
+            --secondary: #FFF;
+            --bg: linear-gradient(135deg, #e0f7fa 0%, #f0f4c3 100%);
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text: #4a5568;
+            --radius: 20px;
+            --font-main: "微軟正黑體", serif; /* 比較優雅 */
+        }
+
+        /* --- [主題 2] 星穹鐵道：深邃、宇宙、科技 --- */
+        [data-theme="hsr"] {
+            --primary: #A277FF;
+            --secondary: #2D2D44;
+            --bg: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            --card-bg: rgba(20, 20, 35, 0.9);
+            --text: #E0E0E0;
+            --accent: #E5C07B;
+            --radius: 4px; /* 比較硬朗 */
+            --shadow: 0 0 20px rgba(162, 119, 255, 0.2);
+        }
+
+        /* --- [主題 3] 絕區零：街頭、霓虹、復古 --- */
+        [data-theme="zzz"] {
+            --primary: #D3FE34; /* 標誌性螢光綠 */
+            --secondary: #000;
+            --bg: #111 url('data:image/svg+xml;utf8,<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><g fill="%23222" fill-rule="evenodd"><path d="M0 40L40 0H20L0 20M40 40V20L20 40"/></g></svg>');
+            --card-bg: #000;
+            --text: #FFF;
+            --accent: #FF4D00;
+            --radius: 0px; /* 直角 */
+            --shadow: 8px 8px 0px rgba(211, 254, 52, 0.3);
+            --font-main: "Arial Black", "微軟正黑體", sans-serif;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.5s ease;
+        }
+
+        .main-container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 900px;
+            padding: 40px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            position: relative;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* --- 動畫特效 --- */
+        @keyframes popIn {
+            0% {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes shine {
+            0% {
+                background-position: -200%;
+            }
+
+            100% {
+                background-position: 200%;
+            }
+        }
+
+        /* --- 首頁選擇卡片 --- */
+        .game-grid {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 40px;
+        }
+
+        .game-card {
+            width: 220px;
+            height: 300px;
+            border-radius: 15px;
+            background: white;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+            border: 4px solid transparent;
+        }
+
+            .game-card:hover {
+                transform: translateY(-10px);
+            }
+
+        .card-gs {
+            background: linear-gradient(to bottom, #dbeafe, #fff);
+            color: #4A90E2;
+        }
+
+            .card-gs:hover {
+                border-color: #4A90E2;
+            }
+
+        .card-hsr {
+            background: linear-gradient(to bottom, #2e2e4d, #1a1a2e);
+            color: #A277FF;
+        }
+
+            .card-hsr:hover {
+                border-color: #A277FF;
+            }
+
+        .card-zzz {
+            background: #000;
+            color: #D3FE34;
+            border: 2px solid #333;
+        }
+
+            .card-zzz:hover {
+                border-color: #D3FE34;
+                box-shadow: 5px 5px 0 #D3FE34;
+                transform: translate(-5px, -5px);
+            }
+
+        .game-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .game-title {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        /* --- UI 元件 --- */
+        h1 {
+            text-align: center;
+            margin: 0 0 20px 0;
+        }
+
+        .nav-bar {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid rgba(0,0,0,0.05);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            font-family: var(--font-main);
+        }
+
+        .btn-nav {
+            background: transparent;
+            border: none;
+            font-size: 1.1em;
+            color: var(--text);
+            opacity: 0.6;
+            cursor: pointer;
+            padding: 10px 20px;
+            transition: 0.3s;
+            border-radius: var(--radius);
+        }
+
+            .btn-nav.active {
+                opacity: 1;
+                background: var(--primary);
+                color: white;
+                font-weight: bold;
+            }
+
+        .btn-back {
+            background: rgba(0,0,0,0.1);
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text);
+        }
+
+        /* --- 篩選按鈕 --- */
+        .filter-group {
+            margin-bottom: 15px;
+            border-bottom: 1px dashed rgba(128,128,128,0.2);
+            padding-bottom: 10px;
+        }
+
+        .filter-label {
+            font-weight: bold;
+            width: 80px;
+            display: inline-block;
+            opacity: 0.8;
+        }
+
+        .filter-btn {
+            background: rgba(128,128,128,0.1);
+            border: 1px solid transparent;
+            color: var(--text);
+            padding: 6px 14px;
+            margin: 4px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        /* ZZZ 專屬方形按鈕 */
+        [data-theme="zzz"] .filter-btn {
+            border-radius: 0px;
+            border: 1px solid #333;
+        }
+
+        .filter-btn:hover {
+            background: rgba(128,128,128,0.2);
+        }
+
+        .filter-btn.active {
+            background: var(--primary);
+            color: #000;
+            font-weight: bold;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        [data-theme="hsr"] .filter-btn.active {
+            color: white;
+        }
+        /* 崩鐵字要白 */
+        [data-theme="genshin"] .filter-btn.active {
+            color: white;
+        }
+
+        /* --- 抽選按鈕與結果 --- */
+        .draw-area {
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .draw-btn {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 15px 60px;
+            font-size: 1.8em;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 10px 30px -10px var(--primary);
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .draw-btn:active {
+                transform: scale(0.95);
+            }
+
+        [data-theme="hsr"] .draw-btn {
+            color: white;
+        }
+
+        [data-theme="genshin"] .draw-btn {
+            color: white;
+        }
+
+        [data-theme="zzz"] .draw-btn {
+            border-radius: 0;
+            border: 3px solid #000;
+            box-shadow: 8px 8px 0 #000;
+        }
+
+        .result-box {
+            margin-top: 30px;
+            padding: 20px;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius);
+            background: rgba(0,0,0,0.03);
+            border: 2px solid rgba(0,0,0,0.05);
+        }
+
+        .result-name {
+            font-size: 3em;
+            font-weight: bold;
+            transition: 0.1s;
+        }
+
+        .result-tags {
+            margin-top: 10px;
+            font-size: 1.1em;
+            opacity: 0.7;
+        }
+
+        /* 稀有度特效 */
+        .is-5star {
+            color: var(--accent);
+            text-shadow: 0 0 20px var(--accent);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* 轉動時的模糊特效 */
+        .rolling {
+            filter: blur(2px);
+            opacity: 0.7;
+            scale: 0.95;
+        }
+
+        /* --- 設定頁面 --- */
+        .char-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .char-card {
+            width: 100px;
+            padding: 12px 5px;
+            border: 2px solid rgba(0,0,0,0.1);
+            border-radius: var(--radius);
+            cursor: pointer;
+            text-align: center;
+            background: var(--card-bg);
+            transition: 0.3s;
+            position: relative;
+        }
+
+        [data-theme="zzz"] .char-card {
+            border-radius: 0;
+            border: 2px solid #333;
+        }
+
+        .char-card.owned {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+            order: 0;
+        }
+
+            .char-card.owned::after {
+                content: "✔";
+                color: var(--primary);
+                font-weight: bold;
+            }
+
+        .char-card.not-owned {
+            opacity: 0.4;
+            filter: grayscale(100%);
+            order: 1;
+            background: transparent;
+        }
+
+        /* 使用者頁籤 */
+        .user-tab {
+            padding: 5px 15px;
+            border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 20px;
+            cursor: pointer;
+            margin-right: 5px;
+            opacity: 0.6;
+        }
+
+            .user-tab.active {
+                background: var(--primary);
+                color: #000;
+                opacity: 1;
+                border-color: transparent;
+                font-weight: bold;
+            }
+
+        [data-theme="hsr"] .user-tab.active, [data-theme="genshin"] .user-tab.active {
+            color: white;
+        }
+
+        /* 隱藏/顯示控制 */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h1 style="font-size: 2.5em; margin-bottom: 40px; color:#444;">HoYoverse Picker</h1>
+        <div class="game-grid">
+            <div class="game-card card-gs" onclick="selectGame('genshin')">
+                <div class="game-icon">✨</div>
+                <div class="game-title">Genshin Impact</div>
+            </div>
+            <div class="game-card card-hsr" onclick="selectGame('hsr')">
+                <div class="game-icon">🚂</div>
+                <div class="game-title">Star Rail</div>
+            </div>
+            <div class="game-card card-zzz" onclick="selectGame('zzz')">
+                <div class="game-icon">📺</div>
+                <div class="game-title">Zenless Zone Zero</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-content" class="main-container hidden">
+        <div class="nav-bar">
+            <button class="btn-back" onclick="goBackHome()">⬅ 更換遊戲</button>
+            <h2 id="game-title-display" style="margin:0; font-size:1.5em;"></h2>
+            <div style="width: 80px;"></div>
+        </div>
+
+        <div style="display:flex; justify-content:center; gap:15px; margin-bottom:30px;">
+            <button class="btn-nav active" onclick="switchPage('draw')">抽卡</button>
+            <button class="btn-nav" onclick="switchPage('settings')">管理</button>
+        </div>
+
+        <div id="draw-page" class="page-section">
+            <div id="filter-container"></div>
+
+            <div class="draw-area">
+                <div id="pool-info" style="margin-bottom: 10px; opacity: 0.6;">等待啟動...</div>
+                <button class="draw-btn" id="btn-draw" onclick="startRolling()">啟動祈願</button>
+
+                <div class="result-box">
+                    <div id="result-name" class="result-name">準備中</div>
+                    <div id="result-tags" class="result-tags">---</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="settings-page" class="page-section hidden">
+            <div class="settings-header">
+                <div class="user-tabs" id="user-tabs-container"></div>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="new-user-name" placeholder="新成員名" style="padding:5px; border-radius:4px; border:1px solid #ccc;">
+                    <button onclick="addNewUser()" style="padding:5px 15px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;">+</button>
+                </div>
+            </div>
+            <p style="opacity:0.6; font-size:0.9em; text-align:center;">( 點擊卡片可切換 擁有 / 未擁有 )</p>
+            <div class="char-grid" id="char-settings-grid"></div>
+            <div style="text-align:center; margin-top:30px;">
+                <button onclick="resetAllData()" style="background:#ef4444; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">重置本遊戲設定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Config ---
+        const gameConfigs = {
+            genshin: {
+                title: "原神", file: "data_genshin.json", highRarity: "5星",
+                categories: [
+                    { name: "擁有", options: [] },
+                    { name: "稀有度", options: ["5星", "4星"] },
+                    { name: "元素", options: ["火", "水", "風", "雷", "草", "冰", "岩"] },
+                    { name: "武器", options: ["單手劍", "雙手劍", "長柄武器", "法器", "弓"] },
+                    { name: "地區", options: ["蒙德", "璃月", "稻妻", "須彌", "楓丹", "納塔", "至冬"] }
+                ]
+            },
+            hsr: {
+                title: "星穹鐵道", file: "data_hsr.json", highRarity: "5星",
+                categories: [
+                    { name: "擁有", options: [] },
+                    { name: "稀有度", options: ["5星", "4星"] },
+                    { name: "屬性", options: ["物理", "火", "冰", "雷", "風", "量子", "虛數"] },
+                    { name: "命途", options: ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒"] }
+                ]
+            },
+            zzz: {
+                title: "絕區零", file: "data_zzz.json", highRarity: "S級",
+                categories: [
+                    { name: "擁有", options: [] },
+                    { name: "稀有度", options: ["S級", "A級"] },
+                    { name: "屬性", options: ["物理", "火", "冰", "電", "以太"] },
+                    { name: "特性", options: ["強攻", "擊破", "異常", "支援", "防護"] }
+                ]
+            }
+        };
+
+        let currentGame = "";
+        let users = ["Eddie", "大俐", "DD"];
+        let currentEditUser = users[0];
+        let baseCharacters = [];
+        let fullData = [];
+        let activeFilters = new Set();
+
+        // 動畫變數
+        let isRolling = false;
+        let rollInterval;
+
+        // --- 1. 核心流程 ---
+        async function selectGame(gameId) {
+            currentGame = gameId;
+
+            // 設定主題 (CSS 變數切換)
+            document.documentElement.setAttribute('data-theme', gameId);
+
+            // 切換畫面
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('app-content').classList.remove('hidden');
+            document.getElementById('game-title-display').innerText = gameConfigs[gameId].title;
+
+            await loadGameData(gameConfigs[gameId].file);
+        }
+
+        function goBackHome() {
+            location.reload();
+        }
+
+        async function loadGameData(file) {
+            try {
+                const res = await fetch(file);
+                if (!res.ok) throw new Error();
+                baseCharacters = await res.json();
+
+                // 讀取 Global Users
+                const savedUsers = localStorage.getItem('gacha_global_users');
+                if (savedUsers) users = JSON.parse(savedUsers);
+
+                // 讀取 Owned Data
+                const savedOwned = localStorage.getItem('gacha_owned_' + currentGame);
+
+                fullData = JSON.parse(JSON.stringify(baseCharacters));
+
+                if (savedOwned) {
+                    const map = JSON.parse(savedOwned);
+                    fullData.forEach(c => { if (map[c.name]) c.tags.push(...map[c.name]); });
+                } else {
+                    fullData.forEach(c => c.tags.push(...users)); // 預設全有
+                }
+
+                initDrawUI();
+                initSettingsUI();
+
+            } catch (e) {
+                alert("讀取資料失敗，請確認 JSON 檔案存在且使用 Live Server 開啟。");
+            }
+        }
+
+        // --- 2. 抽選邏輯 & 動畫 ---
+        function initDrawUI() {
+            const container = document.getElementById('filter-container');
+            container.innerHTML = "";
+            const config = gameConfigs[currentGame];
+
+            config.categories[0].options = [...users]; // 更新 User
+
+            config.categories.forEach(cat => {
+                const div = document.createElement('div');
+                div.className = 'filter-group';
+                div.innerHTML = `<span class="filter-label">${cat.name}</span>`;
+
+                const opts = document.createElement('div');
+                opts.className = 'filter-options';
+
+                cat.options.forEach(tag => {
+                    const btn = document.createElement('button');
+                    btn.className = 'filter-btn';
+                    if (activeFilters.has(tag)) btn.classList.add('active');
+                    btn.innerText = tag;
+                    btn.onclick = () => {
+                        activeFilters.has(tag) ? activeFilters.delete(tag) : activeFilters.add(tag);
+                        initDrawUI(); // 重繪按鈕狀態
+                    };
+                    opts.appendChild(btn);
+                });
+                div.appendChild(opts);
+                container.appendChild(div);
+            });
+            updatePoolCount();
+        }
+
+        function getPool() {
+            if (activeFilters.size === 0) return fullData;
+            return fullData.filter(c => [...activeFilters].every(tag => c.tags.includes(tag)));
+        }
+
+        function updatePoolCount() {
+            const count = getPool().length;
+            document.getElementById('pool-info').innerText = `符合條件：${count} 位角色`;
+        }
+
+        // ★★★ 拉霸機動畫核心 ★★★
+        function startRolling() {
+            if (isRolling) return;
+
+            const pool = getPool();
+            if (pool.length === 0) {
+                document.getElementById('result-name').innerText = "無角色";
+                return;
+            }
+
+            isRolling = true;
+            const nameDiv = document.getElementById('result-name');
+            const tagsDiv = document.getElementById('result-tags');
+            const btn = document.getElementById('btn-draw');
+
+            // UI 狀態設定
+            nameDiv.classList.remove('is-5star'); // 移除特效
+            nameDiv.classList.add('rolling');     // 加入模糊
+            tagsDiv.innerText = "祈願中...";
+            btn.disabled = true;
+            btn.innerText = "抽選中...";
+
+            // 1. 快速轉動 (每 50ms 換一個名字)
+            let rollCount = 0;
+            rollInterval = setInterval(() => {
+                const randomChar = pool[Math.floor(Math.random() * pool.length)];
+                nameDiv.innerText = randomChar.name;
+                rollCount++;
+            }, 50);
+
+            // 2. 停止 (1秒後)
+            setTimeout(() => {
+                clearInterval(rollInterval);
+
+                // 決定最終結果
+                const winner = pool[Math.floor(Math.random() * pool.length)];
+                nameDiv.innerText = winner.name;
+                tagsDiv.innerText = winner.tags.filter(t => !users.includes(t)).join(" · "); // 顯示標籤但隱藏人名
+
+                // 視覺還原與特效
+                nameDiv.classList.remove('rolling');
+
+                // 判斷是否為稀有 (5星/S級)
+                if (winner.tags.includes(gameConfigs[currentGame].highRarity)) {
+                    nameDiv.classList.add('is-5star');
+                }
+
+                isRolling = false;
+                btn.disabled = false;
+                btn.innerText = "再次祈願";
+
+            }, 1000); // 轉動時間 1000ms = 1秒
+        }
+
+        // --- 3. 設定邏輯 ---
+        function initSettingsUI() {
+            const container = document.getElementById('user-tabs-container');
+            container.innerHTML = "";
+            users.forEach(u => {
+                const btn = document.createElement('div');
+                btn.className = `user-tab ${u === currentEditUser ? 'active' : ''}`;
+                btn.innerText = u;
+                btn.onclick = () => { currentEditUser = u; initSettingsUI(); };
+                container.appendChild(btn);
+            });
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('char-settings-grid');
+            grid.innerHTML = "";
+            const highTag = gameConfigs[currentGame].highRarity;
+
+            fullData.forEach(c => {
+                const el = document.createElement('div');
+                const owned = c.tags.includes(currentEditUser);
+                el.className = `char-card ${owned ? 'owned' : 'not-owned'}`;
+
+                // 名字顏色區分稀有度
+                const color = c.tags.includes(highTag) ? "var(--accent)" : "var(--text)";
+                el.innerHTML = `<div style="color:${color}; font-weight:bold;">${c.name}</div>`;
+
+                el.onclick = () => {
+                    if (owned) {
+                        c.tags = c.tags.filter(t => t !== currentEditUser);
+                    } else {
+                        c.tags.push(currentEditUser);
+                    }
+                    saveData();
+                    initSettingsUI(); // 重繪
+                };
+                grid.appendChild(el);
+            });
+        }
+
+        function addNewUser() {
+            const name = document.getElementById('new-user-name').value.trim();
+            if (name && !users.includes(name)) {
+                users.push(name);
+                fullData.forEach(c => c.tags.push(name)); // 預設全有
+                saveData();
+                currentEditUser = name;
+                initSettingsUI();
+                initDrawUI(); // 更新抽選頁的按鈕
+                document.getElementById('new-user-name').value = "";
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('gacha_global_users', JSON.stringify(users));
+            const map = {};
+            fullData.forEach(c => map[c.name] = c.tags.filter(t => users.includes(t)));
+            localStorage.setItem('gacha_owned_' + currentGame, JSON.stringify(map));
+        }
+
+        function resetAllData() {
+            if (confirm("確定重置？")) {
+                localStorage.removeItem('gacha_owned_' + currentGame);
+                location.reload();
+            }
+        }
+
+        function switchPage(p) {
+            document.querySelectorAll('.page-section').forEach(e => e.classList.add('hidden'));
+            document.getElementById(p + '-page').classList.remove('hidden');
+
+            const navs = document.querySelectorAll('.btn-nav');
+            navs.forEach(b => b.classList.remove('active'));
+            // 簡單判定 index 0 是抽卡, 1 是設定
+            if (p === 'draw') { navs[0].classList.add('active'); initDrawUI(); }
+            else { navs[1].classList.add('active'); initSettingsUI(); }
+        }
+
+    </script>
+
+</body>
+</html>
