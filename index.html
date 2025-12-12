@@ -129,7 +129,7 @@
         .draw-area { text-align: center; margin-top: 40px; }
         
         .action-buttons {
-            display: flex; gap: 15px; justify-content: center; margin-bottom: 20px;
+            display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;
         }
 
         .draw-btn {
@@ -198,7 +198,7 @@
             border-radius: var(--radius); text-align: center;
         }
         .io-input {
-            width: 70%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: monospace;
+            width: 60%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: monospace;
         }
         .io-btn {
             padding: 8px 15px; background: var(--text); color: var(--bg); border: none;
@@ -277,11 +277,11 @@
                 <div style="margin-bottom: 10px;">
                     <button class="io-btn" onclick="exportUserCode()">📤 產生匯出代碼</button>
                 </div>
-                <div style="display:flex; gap:5px; justify-content: center;">
+                <div style="display:flex; gap:5px; justify-content: center; flex-wrap:wrap;">
                     <input type="text" id="import-input" class="io-input" placeholder="貼上代碼以匯入...">
                     <button class="io-btn" onclick="importUserCode()">📥 匯入</button>
                 </div>
-                <p style="font-size:0.8em; opacity:0.6; margin-bottom:0;">注意：匯入將會覆蓋此成員目前的擁有狀態</p>
+                <p style="font-size:0.8em; opacity:0.6; margin-bottom:0;">注意：匯入將會更新此成員的擁有狀態（不會刪除既有角色）</p>
             </div>
 
             <hr style="border:0; border-top:1px dashed #ccc; margin: 20px 0;">
@@ -302,7 +302,7 @@
 
         const gameConfigs = {
             genshin: {
-                title: "原神", file: "data_genshin.json", highRarity: "5星",
+                title: "原神", file: "./data_genshin.json", highRarity: "5星",
                 categories: [
                     { name: "擁有", options: [] }, // 動態填入 User
                     { name: "稀有度", options: ["5星", "4星"] },
@@ -312,7 +312,7 @@
                 ]
             },
             hsr: {
-                title: "星穹鐵道", file: "data_hsr.json", highRarity: "5星",
+                title: "星穹鐵道", file: "./data_hsr.json", highRarity: "5星",
                 categories: [
                     { name: "擁有", options: [] },
                     { name: "稀有度", options: ["5星", "4星"] },
@@ -321,7 +321,7 @@
                 ]
             },
             zzz: {
-                title: "絕區零", file: "data_zzz.json", highRarity: "S級",
+                title: "絕區零", file: "./data_zzz.json", highRarity: "S級",
                 categories: [
                     { name: "擁有", options: [] },
                     { name: "稀有度", options: ["S級", "A級"] },
@@ -357,6 +357,7 @@
 
         async function loadGameData(file) {
             try {
+                // 使用相對路徑 fetch，確保在 GitHub Pages 也能運作
                 const res = await fetch(file);
                 if (!res.ok) throw new Error();
                 baseCharacters = await res.json();
@@ -380,7 +381,8 @@
                 initSettingsUI();
 
             } catch (e) {
-                alert("讀取資料失敗，請確認 JSON 檔案存在。");
+                console.error(e);
+                alert("讀取資料失敗！\n1. 請確認 data_*.json 檔案存在。\n2. 如果您是直接打開 HTML 檔案，請改用 VS Code Live Server 開啟（瀏覽器安全性限制）。");
             }
         }
 
@@ -487,7 +489,7 @@
             teamDisplay.innerHTML = "";
 
             if (pool.length < size) {
-                teamDisplay.innerHTML = `<div style="color:red;">角色不足 ${size} 人，無法組隊！<br>請放寬篩選條件。</div>`;
+                teamDisplay.innerHTML = `<div style="color:red; width:100%; text-align:center;">角色不足 ${size} 人，無法組隊！<br>請放寬篩選條件。</div>`;
                 return;
             }
 
@@ -506,6 +508,7 @@
                 const highTag = gameConfigs[currentGame].highRarity;
                 const isHigh = char.tags.includes(highTag);
                 const color = isHigh ? "var(--accent)" : "var(--text)";
+                // 嘗試抓取屬性標籤
                 const mainTag = char.tags.find(t => 
                     ["火","水","風","雷","草","冰","岩","物理","虛數","量子","乙太"].includes(t)
                 ) || "一般";
@@ -593,24 +596,23 @@
 
                 if (!Array.isArray(importedNames)) throw new Error("格式錯誤");
 
-                if(!confirm(`即將將代碼中的角色清單覆蓋至 "${currentEditUser}"，確定嗎？`)) return;
+                if(!confirm(`即將將代碼中的角色匯入至 "${currentEditUser}"，確定嗎？`)) return;
 
                 // 2. 更新 fullData
+                let count = 0;
                 fullData.forEach(c => {
                     if (importedNames.includes(c.name)) {
                         // 如果代碼裡有這隻角色 -> 確保使用者擁有
                         if (!c.tags.includes(currentEditUser)) {
                             c.tags.push(currentEditUser);
+                            count++;
                         }
-                    } else {
-                        // 如果代碼裡沒有這隻角色 -> 確保使用者未擁有 (覆蓋邏輯)
-                        c.tags = c.tags.filter(t => t !== currentEditUser);
                     }
                 });
 
                 saveData();
                 initSettingsUI();
-                alert("匯入成功！");
+                alert(`匯入成功！新增了 ${count} 位角色。`);
                 input.value = ""; // 清空輸入框
 
             } catch (e) {
